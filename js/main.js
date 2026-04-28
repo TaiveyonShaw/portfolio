@@ -3,27 +3,20 @@ let currentPage = 'about';
 const currentYear = new Date().getFullYear();
 
 // ---- Theme management ----
-function applyThemeIcons(theme) {
+function applyTheme(theme) {
+  const html = document.documentElement;
   const sunIcon = document.querySelector('.sun-icon');
   const moonIcon = document.querySelector('.moon-icon');
-  if (!sunIcon || !moonIcon) return; // icons not in DOM yet, skip
+
   if (theme === 'dark') {
+    html.classList.add('dark');
     sunIcon.style.display = 'inline';
     moonIcon.style.display = 'none';
   } else {
+    html.classList.remove('dark');
     sunIcon.style.display = 'none';
     moonIcon.style.display = 'inline';
   }
-}
-
-function applyTheme(theme) {
-  const html = document.documentElement;
-  if (theme === 'dark') {
-    html.classList.add('dark');
-  } else {
-    html.classList.remove('dark');
-  }
-  applyThemeIcons(theme);
   localStorage.setItem('theme', theme);
 }
 
@@ -35,23 +28,18 @@ window.toggleTheme = function() {
 function initTheme() {
   const saved = localStorage.getItem('theme');
   if (saved) {
-    // Only set the class — icons aren't in the DOM yet
-    if (saved === 'dark') {
-      document.documentElement.classList.add('dark');
-    }
+    applyTheme(saved);
     return;
   }
   // Use system preference
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  if (prefersDark) {
-    document.documentElement.classList.add('dark');
-  }
+  applyTheme(prefersDark ? 'dark' : 'light');
 }
 
 // ---- Utility ----
 async function loadComponent(id, path) {
   try {
-    const res = await fetch(path);
+    const res = await fetch(path); // No cache busting in production
     if (!res.ok) throw new Error(`Failed to load ${path}`);
     const html = await res.text();
     document.getElementById(id).innerHTML = html;
@@ -73,15 +61,11 @@ async function loadPage(pageName) {
 
 // ---- Init ----
 document.addEventListener('DOMContentLoaded', async () => {
-  initTheme(); // sets class only, no icon access
+  initTheme();
 
   // Load header and footer
   await loadComponent('header', 'components/header.html');
   await loadComponent('footer', 'components/footer.html');
-
-  // Now that icons are in the DOM, sync them with the current theme
-  const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-  applyThemeIcons(currentTheme);
 
   // Set year in footer
   const yearSpan = document.getElementById('year');
