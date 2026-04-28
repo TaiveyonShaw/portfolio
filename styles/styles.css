@@ -19,7 +19,7 @@
     --logo-bg: url("../images/initial-black.png");
 }
 
-/* Dark theme class (no inline styles needed) */
+/* Dark theme */
 .dark {
     color-scheme: dark;
     --text-primary: #e5e7eb;
@@ -198,7 +198,7 @@ body {
   text-decoration: underline;
 }
 
-/* ---- Project cards (optional, see design ideas) ---- */
+/* ---- Project cards ---- */
 .project {
   color: var(--text-secondary);
   line-height: 1.7;
@@ -228,15 +228,20 @@ body {
 /* ---- Social links ---- */
 .social-section {
   border-top: 1px solid var(--border);
-  padding: 1rem 0;
+  padding: 1.25rem 0;
   margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .social-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 0.5rem;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 0.25rem;
 }
 
 .social-link {
@@ -259,9 +264,7 @@ body {
 }
 
 .social-text {
-  margin-top: 0.5rem;
-  margin-bottom: 1rem;
-  font-size: 1.03rem;
+  font-size: 1rem;
 }
 
 .social-link:hover .social-icon {
@@ -273,12 +276,16 @@ body {
 .footer {
   text-align: center;
   color: var(--text-secondary);
-  opacity: 0.5;
-  font-size: 14px;
-  animation: slideInFromBottom 0.8s ease-out 1.2s both;
   max-width: 95ch;
   margin: 0 auto;
   padding: 2rem 0;
+  animation: slideInFromBottom 0.8s ease-out 1.2s both;
+}
+
+.footer-copy {
+  opacity: 0.5;
+  font-size: 14px;
+  margin-top: 1rem;
 }
 
 /* ---- Utility ---- */

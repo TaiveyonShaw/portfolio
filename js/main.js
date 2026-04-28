@@ -3,24 +3,31 @@ let currentPage = 'about';
 const currentYear = new Date().getFullYear();
 
 // ---- Theme management ----
-function applyTheme(theme) {
-  const html = document.documentElement;
+function applyThemeIcons(theme) {
   const sunIcon = document.querySelector('.sun-icon');
   const moonIcon = document.querySelector('.moon-icon');
-
+  if (!sunIcon || !moonIcon) return;
   if (theme === 'dark') {
-    html.classList.add('dark');
     sunIcon.style.display = 'inline';
     moonIcon.style.display = 'none';
   } else {
-    html.classList.remove('dark');
     sunIcon.style.display = 'none';
     moonIcon.style.display = 'inline';
   }
+}
+
+function applyTheme(theme) {
+  const html = document.documentElement;
+  if (theme === 'dark') {
+    html.classList.add('dark');
+  } else {
+    html.classList.remove('dark');
+  }
+  applyThemeIcons(theme);
   localStorage.setItem('theme', theme);
 }
 
-window.toggleTheme = function() {
+window.toggleTheme = function () {
   const isDark = document.documentElement.classList.contains('dark');
   applyTheme(isDark ? 'light' : 'dark');
 };
@@ -28,18 +35,17 @@ window.toggleTheme = function() {
 function initTheme() {
   const saved = localStorage.getItem('theme');
   if (saved) {
-    applyTheme(saved);
+    if (saved === 'dark') document.documentElement.classList.add('dark');
     return;
   }
-  // Use system preference
   const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(prefersDark ? 'dark' : 'light');
+  if (prefersDark) document.documentElement.classList.add('dark');
 }
 
 // ---- Utility ----
 async function loadComponent(id, path) {
   try {
-    const res = await fetch(path); // No cache busting in production
+    const res = await fetch(path);
     if (!res.ok) throw new Error(`Failed to load ${path}`);
     const html = await res.text();
     document.getElementById(id).innerHTML = html;
@@ -51,11 +57,9 @@ async function loadComponent(id, path) {
 
 async function loadPage(pageName) {
   await loadComponent('content', `components/${pageName}.html`);
-  // Update active navigation link
   document.querySelectorAll('[data-page]').forEach(link => {
     link.classList.toggle('active', link.getAttribute('data-page') === pageName);
   });
-  // Update hash
   window.location.hash = pageName;
 }
 
@@ -63,15 +67,16 @@ async function loadPage(pageName) {
 document.addEventListener('DOMContentLoaded', async () => {
   initTheme();
 
-  // Load header and footer
   await loadComponent('header', 'components/header.html');
   await loadComponent('footer', 'components/footer.html');
 
-  // Set year in footer
+  // Sync icons now that header is in the DOM
+  const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  applyThemeIcons(currentTheme);
+
   const yearSpan = document.getElementById('year');
   if (yearSpan) yearSpan.textContent = currentYear;
 
-  // Determine initial page from hash
   const hash = window.location.hash.replace('#', '');
   if (hash && (hash === 'about' || hash === 'projects')) {
     currentPage = hash;
@@ -89,7 +94,7 @@ window.addEventListener('hashchange', () => {
 });
 
 // Navigation clicks
-document.addEventListener('click', (e) => {
+document.addEventListener('click', e => {
   if (e.target.matches('[data-page]')) {
     e.preventDefault();
     const page = e.target.getAttribute('data-page');
