@@ -248,98 +248,146 @@ document.addEventListener('click', e => {
   loop();
 })();
 
-// Root
-// ---- Root background ----
-(function() {
-  const canvas = document.getElementById('root-bg');
+// ---- Root Background ----
+(function () {
+  const canvas = document.getElementById('pendulum-bg');
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
-
+ 
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    branches = [];
+    init();
   }
-  resize();
-  window.addEventListener('resize', () => { resize(); init(); loop(); });
-
-  function strokeColor(depth) {
-    const dark = document.documentElement.classList.contains('dark');
-    return depth < 3
-      ? (dark ? 'rgba(180,160,130,0.22)' : 'rgba(140,90,50,0.14)')
-      : (dark ? 'rgba(160,140,120,0.15)' : 'rgba(120,80,40,0.09)');
-  }
-
+  window.addEventListener('resize', resize);
+ 
   function Branch(x, y, angle, len, width, depth) {
-    this.x = x; this.y = y; this.angle = angle;
-    this.len = len; this.width = width; this.depth = depth;
-    this.progress = 0; this.speed = 0.006 + Math.random() * 0.005;
+    this.x = x; this.y = y;
+    this.angle = angle; this.len = len;
+    this.width = width; this.depth = depth;
+    this.progress = 0;
+    this.speed = 0.010 + Math.random() * 0.007;
     this.done = false; this.spawned = false; this.children = [];
-    this.wobble = (Math.random() - 0.5) * 0.018;
+    this.curl = (Math.random() - 0.5) * 0.012;
+    this.pts = [{ x, y }];
   }
-  Branch.prototype.endX = function() { return this.x + Math.cos(this.angle) * this.len * this.progress; };
-  Branch.prototype.endY = function() { return this.y + Math.sin(this.angle) * this.len * this.progress; };
-
-  let branches = [];
-
+ 
+  Branch.prototype.tip = function () {
+    return this.pts[this.pts.length - 1];
+  };
+ 
   function spawnChildren(b) {
     if (b.depth >= 8) return;
     const count = b.depth < 2 ? 3 : 2;
-    const spread = 0.55 + Math.random() * 0.3;
+    const tip = b.tip();
     for (let i = 0; i < count; i++) {
-      const sign = i === 0 ? -1 : i === 1 ? 1 : (Math.random() > 0.5 ? -1 : 1) * 0.4;
+      const spread = 0.5 + Math.random() * 0.35;
+      const sign = i === 0 ? -1 : i === 1 ? 1 : (Math.random() > 0.5 ? -0.4 : 0.4);
       const child = new Branch(
-        b.endX(), b.endY(),
-        b.angle + sign * spread * (0.6 + Math.random() * 0.5) + b.wobble * 10,
-        b.len * (0.60 + Math.random() * 0.18),
-        b.width * 0.62,
+        tip.x, tip.y,
+        b.angle + sign * spread + b.curl * 15,
+        b.len * (0.58 + Math.random() * 0.2),
+        b.width * 0.60,
         b.depth + 1
       );
       branches.push(child);
       b.children.push(child);
     }
   }
-
+ 
+  let branches = [];
+ 
   function init() {
     branches = [];
     const W = canvas.width, H = canvas.height;
-    [
-      { x: W * 0.15, angle: -Math.PI / 2 - 0.2,  len: H * 0.18, w: 3.5 },
-      { x: W * 0.42, angle: -Math.PI / 2 - 0.05, len: H * 0.20, w: 4.0 },
-      { x: W * 0.70, angle: -Math.PI / 2 + 0.1,  len: H * 0.17, w: 3.2 },
-      { x: W * 0.90, angle: -Math.PI / 2 + 0.25, len: H * 0.14, w: 2.8 },
-    ].forEach(r => {
+    const roots = [
+      { x: W * 0.18, angle: -Math.PI / 2 - 0.18, len: H * 0.20, w: 4.0 },
+      { x: W * 0.50, angle: -Math.PI / 2,          len: H * 0.22, w: 4.5 },
+      { x: W * 0.82, angle: -Math.PI / 2 + 0.18,  len: H * 0.19, w: 3.8 },
+    ];
+    for (const r of roots) {
       const b = new Branch(r.x, H + 10, r.angle, r.len, r.w, 0);
-      b.speed = 0.004 + Math.random() * 0.003;
+      b.speed = 0.005 + Math.random() * 0.003;
       branches.push(b);
-    });
+    }
   }
-
+ 
+  function isDark() {
+    return document.documentElement.classList.contains('dark');
+  }
+ 
+  function drawSmooth(pts, width, depth) {
+    if (pts.length < 2) return;
+    const dark = isDark();
+    const col = dark
+      ? `rgba(190,165,130,${depth < 3 ? 0.22 : 0.14})`
+      : `rgba(110,70,35,${depth < 3 ? 0.13 : 0.08})`;
+ 
+    ctx.beginPath();
+    ctx.moveTo(pts[0].x, pts[0].y);
+ 
+    if (pts.length === 2) {
+      ctx.lineTo(pts[1].x, pts[1].y);
+    } else {
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i + 1].x) / 2;
+        const my = (pts[i].y + pts[i + 1].y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+      }
+      const last = pts[pts.length - 1];
+      ctx.lineTo(last.x, last.y);
+    }
+ 
+    ctx.strokeStyle = col;
+    ctx.lineWidth = Math.max(0.4, width);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+ 
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (const b of branches) {
-      if (b.progress <= 0) continue;
-      ctx.beginPath();
-      ctx.moveTo(b.x, b.y);
-      ctx.lineTo(b.endX(), b.endY());
-      ctx.strokeStyle = strokeColor(b.depth);
-      ctx.lineWidth = Math.max(0.3, b.width * b.progress);
-      ctx.lineCap = 'round';
-      ctx.stroke();
+      if (b.pts.length < 2) continue;
+      drawSmooth(b.pts, b.width * Math.min(1, b.progress + 0.1), b.depth);
     }
   }
-
-  function loop() {
-    let allDone = true;
+ 
+  function update() {
     for (const b of branches) {
       if (b.done) continue;
-      allDone = false;
       b.progress = Math.min(1, b.progress + b.speed);
-      if (b.progress >= 0.85 && !b.spawned) { b.spawned = true; spawnChildren(b); }
+ 
+      const tip = b.tip();
+      const traveled = Math.hypot(tip.x - b.x, tip.y - b.y);
+      const target = b.len * b.progress;
+ 
+      if (traveled < target) {
+        b.angle += b.curl;
+        const step = b.speed * b.len * 1.5;
+        b.pts.push({
+          x: tip.x + Math.sin(b.angle) * step,
+          y: tip.y - Math.cos(b.angle) * step,
+        });
+      }
+ 
+      if (b.progress >= 0.88 && !b.spawned && b.depth < 8) {
+        b.spawned = true;
+        spawnChildren(b);
+      }
       if (b.progress >= 1) b.done = true;
     }
-    draw();
-    if (!allDone) requestAnimationFrame(loop);
   }
-
+ 
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+ 
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
   init();
   loop();
 })();
