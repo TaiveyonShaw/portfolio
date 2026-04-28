@@ -1,90 +1,98 @@
-let currentPage = "about";
-const userTheme = localStorage.getItem("theme");
+// main.js
+let currentPage = 'about';
 const currentYear = new Date().getFullYear();
 
-window.toggleTheme = toggleTheme;
-
-// Theme toggle
-function toggleTheme() {
+// ---- Theme management ----
+function applyTheme(theme) {
   const html = document.documentElement;
-  const sunIcon = document.querySelector(".sun-icon");
-  const moonIcon = document.querySelector(".moon-icon");
+  const sunIcon = document.querySelector('.sun-icon');
+  const moonIcon = document.querySelector('.moon-icon');
 
-  if (html.style.colorScheme === "dark") {
-    // Icon
-    html.style.colorScheme = "light";
-    sunIcon.style.display = "none";
-    moonIcon.style.display = "inline";
-    // Logo
-    html.style.setProperty("--logo-bg", 'url("../images/initial-black.png")');
-    // Styles
-    html.style.setProperty("--text-primary", "#374151");
-    html.style.setProperty("--text-secondary", "#6b7280");
-    html.style.setProperty("--text-accent", "#3b82f6");
-    html.style.setProperty("--bg-primary", "#ffffff");
-    html.style.setProperty("--bg-secondary", "#f8e5d7");
-    html.style.setProperty("--border", "#e5e7eb");
-    html.style.setProperty("color-scheme", "light");
+  if (theme === 'dark') {
+    html.classList.add('dark');
+    sunIcon.style.display = 'inline';
+    moonIcon.style.display = 'none';
   } else {
-    // Icon
-    html.style.colorScheme = "dark";
-    sunIcon.style.display = "inline";
-    moonIcon.style.display = "none";
-    // Logo
-    html.style.setProperty("--logo-bg", 'url("../images/initial-white.png")');
-    // Styles
-    html.style.setProperty("--text-primary", "#e5e7eb");
-    html.style.setProperty("--text-secondary", "#9ca3af");
-    html.style.setProperty("--text-accent", "#60a5fa");
-    html.style.setProperty("--bg-primary", "#121212");
-    html.style.setProperty("--bg-secondary", "#202020");
-    html.style.setProperty("--border", "#374151");
-    html.style.setProperty("color-scheme", "dark");
+    html.classList.remove('dark');
+    sunIcon.style.display = 'none';
+    moonIcon.style.display = 'inline';
   }
+  localStorage.setItem('theme', theme);
 }
 
-// Utility to load external HTML into an element
+window.toggleTheme = function() {
+  const isDark = document.documentElement.classList.contains('dark');
+  applyTheme(isDark ? 'light' : 'dark');
+};
+
+function initTheme() {
+  const saved = localStorage.getItem('theme');
+  if (saved) {
+    applyTheme(saved);
+    return;
+  }
+  // Use system preference
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  applyTheme(prefersDark ? 'dark' : 'light');
+}
+
+// ---- Utility ----
 async function loadComponent(id, path) {
-  const res = await fetch(`${path}?_=${Date.now()}`);
-  const html = await res.text();
-  document.getElementById(id).innerHTML = html;
-}
-
-// Load content into the #content container
-async function loadPage(pageName) {
-  const res = await fetch(`components/${pageName}.html?_=${Date.now()}`);
-  const html = await res.text();
-  document.getElementById("content").innerHTML = html;
-}
-
-document.addEventListener("DOMContentLoaded", async () => {
-  // Load header and footer first
-  await loadComponent("header", "components/header.html");
-  await loadComponent("footer", "components/footer.html");
-
-  // Now safe to insert current year
-  const yearSpan = document.getElementById("year");
-  if (yearSpan) {
-    yearSpan.textContent = currentYear;
+  try {
+    const res = await fetch(path); // No cache busting in production
+    if (!res.ok) throw new Error(`Failed to load ${path}`);
+    const html = await res.text();
+    document.getElementById(id).innerHTML = html;
+  } catch (err) {
+    console.error(err);
+    document.getElementById(id).innerHTML = '<p>Content could not be loaded.</p>';
   }
+}
 
-  // Initial page load
+async function loadPage(pageName) {
+  await loadComponent('content', `components/${pageName}.html`);
+  // Update active navigation link
+  document.querySelectorAll('[data-page]').forEach(link => {
+    link.classList.toggle('active', link.getAttribute('data-page') === pageName);
+  });
+  // Update hash
+  window.location.hash = pageName;
+}
+
+// ---- Init ----
+document.addEventListener('DOMContentLoaded', async () => {
+  initTheme();
+
+  // Load header and footer
+  await loadComponent('header', 'components/header.html');
+  await loadComponent('footer', 'components/footer.html');
+
+  // Set year in footer
+  const yearSpan = document.getElementById('year');
+  if (yearSpan) yearSpan.textContent = currentYear;
+
+  // Determine initial page from hash
+  const hash = window.location.hash.replace('#', '');
+  if (hash && (hash === 'about' || hash === 'projects')) {
+    currentPage = hash;
+  }
   loadPage(currentPage);
+});
 
-  // System theme detection
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  if (prefersDark) {
-    document.documentElement.style.colorScheme = "dark";
-    document.querySelector(".sun-icon").style.display = "inline";
-    document.querySelector(".moon-icon").style.display = "none";
+// Listen for hash changes (browser back/forward)
+window.addEventListener('hashchange', () => {
+  const page = window.location.hash.replace('#', '') || 'about';
+  if (page !== currentPage) {
+    currentPage = page;
+    loadPage(page);
   }
 });
 
-// Listen for nav link clicks (delegation)
-document.addEventListener("click", (e) => {
-  if (e.target.matches("[data-page]")) {
+// Navigation clicks
+document.addEventListener('click', (e) => {
+  if (e.target.matches('[data-page]')) {
     e.preventDefault();
-    const page = e.target.getAttribute("data-page");
+    const page = e.target.getAttribute('data-page');
     if (page !== currentPage) {
       currentPage = page;
       loadPage(page);
