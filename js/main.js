@@ -253,9 +253,17 @@ document.addEventListener('click', e => {
   const canvas = document.getElementById('root-bg');
   const ctx = canvas.getContext('2d');
 
+  function easeOutCubic(t) {
+    return 1 - Math.pow(1 - t, 3);
+  }
+
   function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(window.innerWidth * dpr);
+    canvas.height = Math.floor(window.innerHeight * dpr);
+    canvas.style.width = window.innerWidth + 'px';
+    canvas.style.height = window.innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
   resize();
   window.addEventListener('resize', () => { resize(); init(); loop(); });
@@ -270,12 +278,34 @@ document.addEventListener('click', e => {
   function Branch(x, y, angle, len, width, depth) {
     this.x = x; this.y = y; this.angle = angle;
     this.len = len; this.width = width; this.depth = depth;
-    this.progress = 0; this.speed = 0.006 + Math.random() * 0.005;
+    this.progress = 0; this.speed = 0.0045 + Math.random() * 0.003;
     this.done = false; this.spawned = false; this.children = [];
-    this.wobble = (Math.random() - 0.5) * 0.018;
+    this.wobble = (Math.random() - 0.5) * 0.012;
   }
-  Branch.prototype.endX = function() { return this.x + Math.cos(this.angle) * this.len * this.progress; };
-  Branch.prototype.endY = function() { return this.y + Math.sin(this.angle) * this.len * this.progress; };
+
+  function curveGeometry(b) {
+    const tipX = b.x + Math.cos(b.angle) * b.len;
+    const tipY = b.y + Math.sin(b.angle) * b.len;
+    const bend = b.wobble * b.len * 0.4;
+    return {
+      x0: b.x, y0: b.y,
+      cx: (b.x + tipX) / 2 - Math.sin(b.angle) * bend,
+      cy: (b.y + tipY) / 2 + Math.cos(b.angle) * bend,
+      x1: tipX, y1: tipY,
+    };
+  }
+
+  function pointOnCurve(c, t) {
+    const o = 1 - t;
+    return {
+      x: o * o * c.x0 + 2 * o * t * c.cx + t * t * c.x1,
+      y: o * o * c.y0 + 2 * o * t * c.cy + t * t * c.y1,
+    };
+  }
+
+  Branch.prototype.tip = function() {
+    return pointOnCurve(curveGeometry(this), easeOutCubic(this.progress));
+  };
 
   let branches = [];
 
@@ -283,11 +313,12 @@ document.addEventListener('click', e => {
     if (b.depth >= 8) return;
     const count = b.depth < 2 ? 3 : 2;
     const spread = 0.55 + Math.random() * 0.3;
+    const tip = b.tip();
     for (let i = 0; i < count; i++) {
       const sign = i === 0 ? -1 : i === 1 ? 1 : (Math.random() > 0.5 ? -1 : 1) * 0.4;
       const child = new Branch(
-        b.endX(), b.endY(),
-        b.angle + sign * spread * (0.6 + Math.random() * 0.5) + b.wobble * 10,
+        tip.x, tip.y,
+        b.angle + sign * spread * (0.6 + Math.random() * 0.5) + b.wobble * 6,
         b.len * (0.60 + Math.random() * 0.18),
         b.width * 0.62,
         b.depth + 1
@@ -299,7 +330,7 @@ document.addEventListener('click', e => {
 
   function init() {
     branches = [];
-    const W = canvas.width, H = canvas.height;
+    const W = window.innerWidth, H = window.innerHeight;
     [
       { x: W * 0.15, angle: -Math.PI / 2 - 0.2,  len: H * 0.18, w: 3.5 },
       { x: W * 0.42, angle: -Math.PI / 2 - 0.05, len: H * 0.20, w: 4.0 },
@@ -307,23 +338,37 @@ document.addEventListener('click', e => {
       { x: W * 0.90, angle: -Math.PI / 2 + 0.25, len: H * 0.14, w: 2.8 },
     ].forEach(r => {
       const b = new Branch(r.x, H + 10, r.angle, r.len, r.w, 0);
-      b.speed = 0.004 + Math.random() * 0.003;
+      b.speed = 0.0035 + Math.random() * 0.0025;
       branches.push(b);
     });
   }
 
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (const b of branches) {
-      if (b.progress <= 0) continue;
-      ctx.beginPath();
-      ctx.moveTo(b.x, b.y);
-      ctx.lineTo(b.endX(), b.endY());
-      ctx.strokeStyle = strokeColor(b.depth);
-      ctx.lineWidth = Math.max(0.3, b.width * b.progress);
-      ctx.lineCap = 'round';
-      ctx.stroke();
+  function drawBranch(b) {
+    const t = easeOutCubic(b.progress);
+    if (t <= 0) return;
+    const c = curveGeometry(b);
+    const steps = Math.max(12, Math.ceil(24 * t));
+    const p0 = pointOnCurve(c, 0);
+
+    ctx.beginPath();
+    ctx.moveTo(p0.x, p0.y);
+    for (let i = 1; i <= steps; i++) {
+      const p = pointOnCurve(c, (i / steps) * t);
+      ctx.lineTo(p.x, p.y);
     }
+    ctx.strokeStyle = strokeColor(b.depth);
+    ctx.lineWidth = Math.max(0.3, b.width * t);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.stroke();
+  }
+
+  function draw() {
+    const W = window.innerWidth, H = window.innerHeight;
+    ctx.clearRect(0, 0, W, H);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const b of branches) drawBranch(b);
   }
 
   function loop() {
